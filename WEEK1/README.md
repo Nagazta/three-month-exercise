@@ -25,4 +25,22 @@ NEED TO UPDATE:
 | **Better display area**                  | Show entire equation (`4 + 2`) above the result for context |
 | **Dark/Light theme toggle** *(optional)* | Nice for practice and user customization                    |
 
+MAY 27, 2025
+![Calculator Preview] (images/image2.png)
 
+🧠 Logic Improvements Implemented
+| Feature                       | Why It Helps                                             |
+| ----------------------------- | -------------------------------------------------------- |
+| **Backspace/Delete**          | Lets users fix mistakes without clearing all input       |
+| **Prevent multiple decimals** | Avoids broken inputs like `2..3`                         |
+| **Chained calculations**      | Allows continuous calculations like `2 + 3 = 5 × 4 = 20` |
+| **Keyboard input support**    | Boosts usability with full keyboard support              |
+
+🎨 UI/UX Enhancements
+| Feature                                 | Why It Helps                                          |
+| --------------------------------------- | ----------------------------------------------------- |
+| **Button spacing and styling**          | Improves readability and layout clarity               |
+| **Responsive design**                   | Makes it functional on phones and tablets             |
+| **Highlight selected operator** *(WIP)* | Will improve visual feedback during operation         |
+| **Better display area** *(WIP)*         | To show entire expression + result for better context |
+| **Dark/Light theme toggle** ✅           | Gives users visual customization, good UI/UX practice |
