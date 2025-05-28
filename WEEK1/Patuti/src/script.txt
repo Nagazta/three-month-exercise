@@ -1,0 +1,339 @@
+const animationFrames = {
+    idle: ["idle-1.png", "idle-2.png"],
+    left: ["left-1.png", "left-2.png", "left-3.png", "left-4.png"],
+    right: ["right-1.png", "right-2.png", "right-3.png", "right-4.png"],
+    jump: ["jump-1.png", "jump-2.png", "jump-3.png"],
+    dock: ["dock-1.png", "dock-2.png"]
+};
+
+let character = null;
+let velocityY = 0;
+let gravity = 0.8;
+let isJumping = false;
+let health = 100;
+let maxHealth = 100;
+let bullets = [];
+let keys = {};
+let frameIndex = 0;
+let animationTimer = 0;
+let currentAnimation = 'idle';
+let bulletSpawner;
+let onPlatform = true;
+let gameRunning = true;
+let gameOverTriggered = false; // ADD THIS FLAG
+
+function updateCharacterPosition() {
+    if (!gameRunning || gameOverTriggered) return; // Stop all character updates when game over
+
+    let charContainer = document.querySelector('.char');
+    let platform = document.querySelector('.area');
+
+    let currentLeft = parseInt(character.style.left) || 0;
+    let currentTop = parseInt(character.style.top) || 0;
+
+    if (isJumping || !onPlatform) {
+        velocityY += gravity;
+        let newTop = currentTop + velocityY;
+        character.style.top = newTop + 'px';
+
+        let charRect = character.getBoundingClientRect();
+        let platRect = platform.getBoundingClientRect();
+        let containerRect = charContainer.getBoundingClientRect();
+
+        // Adjusted landing detection
+        if (
+            velocityY > 0 &&
+            charRect.bottom >= platRect.top - 5 &&
+            charRect.bottom <= platRect.top + 5 &&
+            charRect.right > platRect.left &&
+            charRect.left < platRect.right
+        ) {
+            character.style.top = (platRect.top - character.offsetHeight - containerRect.top) + 'px';
+            velocityY = 0;
+            isJumping = false;
+            onPlatform = true;
+            currentAnimation = 'idle';
+        } else if (velocityY > 0) {
+            onPlatform = false;
+        }
+
+        if (charRect.top > window.innerHeight && gameRunning && !gameOverTriggered) {
+            gameOver();
+            return; // Stop processing movement after game over
+        }
+
+    }
+
+    if (keys['ArrowLeft']) moveLeft();
+    if (keys['ArrowRight']) moveRight();
+    if (keys['ArrowDown']) crouch();
+
+    if (!keys['ArrowLeft'] && !keys['ArrowRight'] && !keys['ArrowDown'] && !isJumping) {
+        currentAnimation = 'idle';
+    }
+
+    updatePlatformStatus();
+}
+
+function respawnCharacter() {
+    let charContainer = document.querySelector('.char');
+    charContainer.style.left = "50%";
+    charContainer.style.bottom = "calc(20% + 120px)";
+    character.style.left = "0px";
+    character.style.top = "0px";
+
+    velocityY = 0;
+    isJumping = false;
+    onPlatform = true;
+    currentAnimation = "idle";
+}
+
+function updateAnimationFrame() {
+    const frames = animationFrames[currentAnimation];
+    if (!frames) return;
+
+    animationTimer++;
+    if (animationTimer >= 6) {
+        animationTimer = 0;
+        frameIndex = (frameIndex + 1) % frames.length;
+        character.src = `../images/${frames[frameIndex]}`;
+
+        character.style.transform = currentAnimation === 'left' ? "scaleX(-1)" : "scaleX(1)";
+    }
+}
+
+function updatePlatformStatus() {
+    const charRect = character.getBoundingClientRect();
+    const platRect = document.querySelector('.area').getBoundingClientRect();
+
+    const isVerticallyAligned = Math.abs(charRect.bottom - platRect.top) < 10;
+    const isHorizontallyAligned = charRect.right > platRect.left + 10 && charRect.left < platRect.right - 10;
+
+    if (isVerticallyAligned && isHorizontallyAligned) {
+        onPlatform = true;
+    } else {
+        onPlatform = false;
+        if (velocityY === 0) {
+            velocityY = 2;
+        }
+    }
+}
+
+function moveLeft() {
+    let left = parseInt(character.style.left) || 0;
+    character.style.left = (left - 5) + 'px';
+
+    if (!isJumping && currentAnimation !== 'left') {
+        currentAnimation = 'left';
+        frameIndex = 0;
+    }
+}
+
+function moveRight() {
+    let left = parseInt(character.style.left) || 0;
+    character.style.left = (left + 5) + 'px';
+
+    if (!isJumping) {
+        currentAnimation = 'right';
+    }
+}
+
+function jump() {
+    if (!isJumping && onPlatform) {
+        velocityY = -15;
+        isJumping = true;
+        onPlatform = false;
+        currentAnimation = 'jump';
+        frameIndex = 0;
+    }
+}
+
+function crouch() {
+    if (!isJumping && onPlatform) {
+        currentAnimation = 'dock';
+    }
+}
+
+function handleKeydown(evt) {
+    if (!gameRunning) return;
+    keys[evt.key] = true;
+
+    if (evt.key === 'ArrowUp' || evt.key === ' ') {
+        evt.preventDefault();
+        jump();
+    }
+}
+
+function handleKeyup(evt) {
+    keys[evt.key] = false;
+}
+
+function spawnBullet() {
+    if (!gameRunning) return;
+
+    let bulletType = Math.random() < 0.7 ? 'horizontal' : 'vertical';
+    let bullet = document.createElement("img");
+    bullet.style.position = "absolute";
+
+    if (bulletType === 'horizontal') {
+        bullet.src = "../images/bullet_h.png";
+        bullet.className = "bullet bullet-horizontal";
+        bullet.style.left = window.innerWidth + "px";
+        bullet.style.top = (Math.random() * (window.innerHeight - 200) + 100) + "px";
+        bullet.dataset.velocityX = -8;
+        bullet.dataset.velocityY = 0;
+    } else {
+        bullet.src = "../images/bullet_v.png";
+        bullet.className = "bullet bullet-vertical";
+        bullet.style.left = (Math.random() * (window.innerWidth - 100) + 50) + "px";
+        bullet.style.top = "-50px";
+        bullet.dataset.velocityX = 0;
+        bullet.dataset.velocityY = 6;
+    }
+
+    document.body.appendChild(bullet);
+    bullets.push(bullet);
+}
+
+function moveBullets() {
+    if (!gameRunning) return;
+
+    bullets.forEach((bullet, index) => {
+        let left = parseInt(bullet.style.left);
+        let top = parseInt(bullet.style.top);
+        let velocityX = parseInt(bullet.dataset.velocityX);
+        let velocityY = parseInt(bullet.dataset.velocityY);
+
+        bullet.style.left = (left + velocityX) + "px";
+        bullet.style.top = (top + velocityY) + "px";
+
+        if (left < -50 || left > window.innerWidth + 50 ||
+            top < -50 || top > window.innerHeight + 50) {
+            bullet.remove();
+            bullets.splice(index, 1);
+            return;
+        }
+
+        if (checkCollision(character, bullet)) {
+            health -= 10;
+            bullet.remove();
+            bullets.splice(index, 1);
+            updateHealthBar();
+            document.getElementById("health").textContent = "Health: " + health;
+
+            character.style.filter = 'sepia(1) saturate(2) hue-rotate(-60deg) brightness(1.2)';
+            setTimeout(() => {
+                character.style.filter = 'none';
+            }, 200);
+
+            if (health <= 0 && !gameOverTriggered) {
+                gameOver();
+            }
+        }
+    });
+}
+
+function checkCollision(rect1, rect2) {
+    let r1 = rect1.getBoundingClientRect();
+    let r2 = rect2.getBoundingClientRect();
+    return !(r2.left > r1.right ||
+        r2.right < r1.left ||
+        r2.top > r1.bottom ||
+        r2.bottom < r1.top);
+}
+
+function updateHealthBar() {
+    let healthBar = document.getElementById("healthBar");
+    let healthPercentage = (health / maxHealth) * 100;
+    healthBar.style.width = healthPercentage + "%";
+
+    if (healthPercentage > 60) {
+        healthBar.style.background = "linear-gradient(90deg, #00ff00 0%, #7fff00 100%)";
+    } else if (healthPercentage > 30) {
+        healthBar.style.background = "linear-gradient(90deg, #ffff00 0%, #ffa500 100%)";
+    } else {
+        healthBar.style.background = "linear-gradient(90deg, #ff0000 0%, #ff4500 100%)";
+    }
+}
+
+function gameOver() {
+    if (!gameRunning || gameOverTriggered) return; // PREVENT MULTIPLE TRIGGERS
+
+    gameOverTriggered = true; // SET FLAG
+    gameRunning = false;
+    clearInterval(bulletSpawner);
+
+    // Remove remaining bullets
+    bullets.forEach(b => b.remove());
+    bullets = [];
+
+    document.getElementById("gameOverOverlay").style.display = "flex";
+}
+
+function resetGame() {
+    // Reset the game over flag FIRST
+    gameOverTriggered = false;
+    
+    // Remove existing bullets
+    bullets.forEach(b => b.remove());
+    bullets = [];
+
+    // Reset character position PROPERLY
+    character.style.left = "0px";
+    character.style.top = "0px";
+    
+    // Also reset the container position to make sure character is back on platform
+    let charContainer = document.querySelector('.char');
+    charContainer.style.left = "50%";
+    charContainer.style.bottom = "calc(20% + 120px)";
+
+    // Reset health and state
+    health = maxHealth;
+    isJumping = false;
+    velocityY = 0;
+    onPlatform = true;
+    currentAnimation = 'idle';
+    gameRunning = true;
+
+    // Update health UI
+    updateHealthBar();
+    document.getElementById("health").textContent = "Health: " + health;
+
+    // Hide overlay
+    const overlay = document.getElementById("gameOverOverlay");
+    overlay.style.display = "none";
+
+    // Clear any bullets that were not in the bullets array (if manually added)
+    document.querySelectorAll(".bullet").forEach(bullet => bullet.remove());
+
+    // Restart bullet spawner
+    clearInterval(bulletSpawner);
+    bulletSpawner = setInterval(spawnBullet, 2000);
+}
+
+function gameLoop() {
+    updateCharacterPosition();
+    moveBullets();
+    updateAnimationFrame();
+    requestAnimationFrame(gameLoop);
+}
+
+window.onload = function () {
+    character = document.getElementById("character");
+    character.style.left = "0px";
+    character.style.top = "0px";
+
+    updateHealthBar();
+
+    // Attach controls
+    document.addEventListener("keydown", handleKeydown);
+    document.addEventListener("keyup", handleKeyup);
+
+    // FIXED: Add event listener only once and prevent duplicates
+    const playAgainBtn = document.getElementById("playAgainBtn");
+    
+    bulletSpawner = setInterval(spawnBullet, 2000);
+    gameLoop();
+
+    console.log("Controls: Arrow keys to move, Up arrow or Space to jump, Down arrow to crouch");
+};
